@@ -110,42 +110,58 @@ class GiteaRepoMonitor(Star):
         pass
     
     @gitea_group.command("add")
-    async def add_monitor(self, event: AstrMessageEvent, repo_url: str, secret: str):
+    async def add_monitor(self, event: AstrMessageEvent, repo_url: str, secret: str, group_id: str = None):
         """
-        添加仓库监控配置（自动使用当前群组）
+        添加仓库监控配置
         
-        用法: /gitea add <repo_url> <secret>
-        示例: /gitea add https://gitea.example.com/user/repo my_secret_key
+        用法: 
+          /gitea add <repo_url> <secret>              - 自动使用当前群组
+          /gitea add <repo_url> <secret> <group_id>   - 指定目标群组
         
-        注意：必须在目标群组中执行此命令
+        示例: 
+          /gitea add https://gitea.example.com/user/repo my_secret_key
+          /gitea add https://gitea.example.com/user/repo my_secret_key 1077066122
         """
         # 验证参数
         if not repo_url or not secret:
-            yield event.plain_result("❌ 参数不完整！\n用法: /gitea add <repo_url> <secret>\n\n💡 提示：命令会自动使用当前群组作为通知目标")
+            yield event.plain_result("❌ 参数不完整！\n用法: /gitea add <repo_url> <secret> [group_id]\n\n💡 提示：不提供 group_id 时会自动使用当前群组")
             return
         
         # 获取当前会话的 unified_msg_origin
-        unified_msg_origin = event.unified_msg_origin
+        current_unified_msg_origin = event.unified_msg_origin
+        logger.info(f"收到 add 命令，当前 unified_msg_origin: {current_unified_msg_origin}")
         
-        # 检查是否是群组消息
-        if "_group_" not in unified_msg_origin:
-            yield event.plain_result("❌ 此命令只能在群组中使用！\n请在目标群组中执行此命令。")
-            return
+        # 如果提供了 group_id，构造 unified_msg_origin
+        if group_id:
+            # 从当前会话提取平台信息
+            parts = current_unified_msg_origin.split('_')
+            if len(parts) >= 3:
+                platform = parts[0]  # 例如: default, aiocqhttp, napcat
+                unified_msg_origin = f"{platform}_group_{group_id}"
+                logger.info(f"使用指定群号构造 unified_msg_origin: {unified_msg_origin}")
+            else:
+                # 如果无法解析，使用默认格式
+                unified_msg_origin = f"default_group_{group_id}"
+                logger.warning(f"无法解析当前会话格式，使用默认格式: {unified_msg_origin}")
+        else:
+            # 使用当前会话
+            unified_msg_origin = current_unified_msg_origin
+            logger.info(f"使用当前会话: {unified_msg_origin}")
         
         # 提取群组 ID（用于显示）
         parts = unified_msg_origin.split('_')
-        group_id = parts[2] if len(parts) >= 3 else "未知"
+        display_group_id = parts[2] if len(parts) >= 3 else parts[-1]
         
         # 检查是否已存在
         if self._find_monitor(repo_url):
             yield event.plain_result(f"❌ 该仓库的监控配置已存在！\n仓库: {repo_url}")
             return
         
-        # 添加监控配置（存储 unified_msg_origin 而不是群号）
+        # 添加监控配置
         success = self.config_manager.add_monitor(repo_url, secret, unified_msg_origin)
         
         if success:
-            yield event.plain_result(f"✅ 成功添加监控配置！\n仓库: {repo_url}\n目标群组: {group_id}\n会话 ID: {unified_msg_origin}\n\n💡 提示：配置已实时保存")
+            yield event.plain_result(f"✅ 成功添加监控配置！\n仓库: {repo_url}\n目标群组: {display_group_id}\n会话 ID: {unified_msg_origin}\n\n💡 提示：配置已实时保存")
             logger.info(f"通过指令添加监控配置: {repo_url} -> {unified_msg_origin}")
         else:
             yield event.plain_result(f"❌ 添加监控配置失败！\n可能原因：保存配置时发生错误")
