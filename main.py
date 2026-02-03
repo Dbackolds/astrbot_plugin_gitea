@@ -2,6 +2,7 @@
 Gitea 仓库监控插件
 监控 Gitea 仓库的推送、合并请求和议题事件，并发送通知到指定的 QQ 群组
 """
+import os
 from pathlib import Path
 from astrbot.api.star import Context, Star, register
 from astrbot.api.event import filter, AstrMessageEvent
@@ -38,9 +39,9 @@ class GiteaRepoMonitor(Star):
         webhook_port = plugin_config.get("webhook_port", 8765)
         
         # 初始化配置管理器
-        data_path = Path(get_astrbot_data_path())
-        storage_path = data_path / "plugin_data" / "astrbot_plugin_gitea" / "monitors.json"
-        self.config_manager = ConfigManager(str(storage_path))
+        data_path = get_astrbot_data_path()
+        storage_path = os.path.join(data_path, "plugin_data", "astrbot_plugin_gitea", "monitors.json")
+        self.config_manager = ConfigManager(storage_path)
         
         # 从插件配置中加载监控列表
         monitors_config = plugin_config.get("monitors", [])
