@@ -72,15 +72,62 @@ class GiteaRepoMonitor(Star):
             logger.error(f"停止插件时发生错误: {e}")
     
     def _get_monitors(self):
-        """获取所有监控配置"""
+        """获取所有监控配置（WebUI + 运行时）"""
+        import json
+        from pathlib import Path
+        
+        # 从 WebUI 配置获取
         plugin_config = self.context.get_config()
-        return plugin_config.get("monitors", [])
+        webui_monitors = plugin_config.get("monitors", [])
+        
+        # 从运行时文件获取
+        runtime_monitors = []
+        try:
+            data_path = Path(os.path.join(os.path.dirname(__file__), "runtime_monitors.json"))
+            if data_path.exists():
+                with open(data_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    runtime_monitors = data.get("monitors", [])
+        except Exception as e:
+            logger.debug(f"读取运行时配置失败: {e}")
+        
+        # 合并配置（去重，以 repo_url 为键）
+        all_monitors = {}
+        
+        # 先添加 WebUI 配置
+        for monitor in webui_monitors:
+            repo_url = monitor.get("repo_url")
+            if repo_url:
+                all_monitors[repo_url] = monitor
+        
+        # 再添加运行时配置（会覆盖同名的 WebUI 配置）
+        for monitor in runtime_monitors:
+            repo_url = monitor.get("repo_url")
+            if repo_url:
+                all_monitors[repo_url] = monitor
+        
+        return list(all_monitors.values())
     
     def _save_monitors(self, monitors):
-        """保存监控配置到插件配置"""
+        """保存监控配置（只保存运行时添加的）"""
         try:
-            # 更新配置
-            self.context.update_config({"monitors": monitors})
+            import json
+            from pathlib import Path
+            
+            # 获取 WebUI 配置的 repo_url 列表
+            plugin_config = self.context.get_config()
+            webui_monitors = plugin_config.get("monitors", [])
+            webui_repo_urls = {m.get("repo_url") for m in webui_monitors}
+            
+            # 只保存不在 WebUI 配置中的监控（即通过指令添加的）
+            runtime_monitors = [m for m in monitors if m.get("repo_url") not in webui_repo_urls]
+            
+            data_path = Path(os.path.join(os.path.dirname(__file__), "runtime_monitors.json"))
+            
+            with open(data_path, 'w', encoding='utf-8') as f:
+                json.dump({"monitors": runtime_monitors}, f, ensure_ascii=False, indent=2)
+            
+            logger.info(f"运行时监控配置已保存: {len(runtime_monitors)} 个")
             return True
         except Exception as e:
             logger.error(f"保存监控配置失败: {e}")
@@ -132,7 +179,7 @@ class GiteaRepoMonitor(Star):
         
         # 保存配置
         if self._save_monitors(monitors):
-            yield event.plain_result(f"✅ 成功添加监控配置！\n仓库: {repo_url}\n目标群组: {group_id}\n\n💡 提示：配置已同步到 WebUI，请刷新页面查看")
+            yield event.plain_result(f"✅ 成功添加监控配置！\n仓库: {repo_url}\n目标群组: {group_id}\n\n💡 提示：通过指令添加的配置会在插件重启后保留")
             logger.info(f"通过指令添加监控配置: {repo_url} -> 群组 {group_id}")
         else:
             yield event.plain_result(f"❌ 添加监控配置失败！\n保存配置时发生错误")
@@ -184,7 +231,7 @@ class GiteaRepoMonitor(Star):
         
         # 保存配置
         if self._save_monitors(new_monitors):
-            yield event.plain_result(f"✅ 成功删除监控配置！\n仓库: {repo_url}\n\n💡 提示：配置已同步到 WebUI，请刷新页面查看")
+            yield event.plain_result(f"✅ 成功删除监控配置！\n仓库: {repo_url}")
             logger.info(f"通过指令删除监控配置: {repo_url}")
         else:
             yield event.plain_result(f"❌ 删除失败！\n保存配置时发生错误")
@@ -223,6 +270,7 @@ http://你的服务器IP:{webhook_port}/webhook
 - 确保服务器端口 {webhook_port} 可从外网访问
 - secret 需要与 Gitea Webhook 配置中的密钥一致
 - group_id 是目标 QQ 群的群号
-- 通过指令或 WebUI 添加的配置会自动同步"""
+- 可以通过指令或 WebUI 配置界面添加监控
+- 两种方式添加的配置都会生效"""
         
         yield event.plain_result(message)
