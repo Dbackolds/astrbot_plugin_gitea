@@ -134,14 +134,15 @@ class GiteaRepoMonitor(Star):
         # 如果提供了 group_id，构造 unified_msg_origin
         if group_id:
             # 从当前会话提取平台信息
-            parts = current_unified_msg_origin.split('_')
+            # 格式: {platform_id}:{message_type}:{session_id}
+            parts = current_unified_msg_origin.split(':')
             if len(parts) >= 3:
                 platform = parts[0]  # 例如: default, aiocqhttp, napcat
-                unified_msg_origin = f"{platform}_group_{group_id}"
+                unified_msg_origin = f"{platform}:group:{group_id}"
                 logger.info(f"使用指定群号构造 unified_msg_origin: {unified_msg_origin}")
             else:
                 # 如果无法解析，使用默认格式
-                unified_msg_origin = f"default_group_{group_id}"
+                unified_msg_origin = f"default:group:{group_id}"
                 logger.warning(f"无法解析当前会话格式，使用默认格式: {unified_msg_origin}")
         else:
             # 使用当前会话
@@ -149,7 +150,7 @@ class GiteaRepoMonitor(Star):
             logger.info(f"使用当前会话: {unified_msg_origin}")
         
         # 提取群组 ID（用于显示）
-        parts = unified_msg_origin.split('_')
+        parts = unified_msg_origin.split(':')
         display_group_id = parts[2] if len(parts) >= 3 else parts[-1]
         
         # 检查是否已存在

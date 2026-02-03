@@ -24,7 +24,8 @@ class MonitorConfig:
     def group_id(self) -> str:
         """从 unified_msg_origin 提取群组 ID（用于显示）"""
         try:
-            parts = self.unified_msg_origin.split('_')
+            # 格式: {platform_id}:{message_type}:{session_id}
+            parts = self.unified_msg_origin.split(':')
             if len(parts) >= 3 and parts[1] == 'group':
                 return parts[2]
             return "未知"
