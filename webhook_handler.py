@@ -86,7 +86,7 @@ class WebhookHandler:
                 logger.info(f"当前已配置的仓库: {[m.repo_url for m in self.config_manager.list_monitors()]}")
                 return {"status": "ignored", "message": "Repository not monitored"}
             
-            logger.info(f"找到监控配置: repo_url={repo_url}, group_id={config.group_id}")
+            logger.info(f"找到监控配置: repo_url={repo_url}, unified_msg_origin={config.unified_msg_origin}")
             
             # 验证签名
             logger.debug(f"使用密钥验证签名: {config.secret[:5]}...")
@@ -107,9 +107,9 @@ class WebhookHandler:
             logger.info(f"格式化后的消息: {message[:100]}...")
             
             # 发送通知
-            logger.info(f"准备发送到群组: {config.group_id}")
+            logger.info(f"准备发送到会话: {config.unified_msg_origin}")
             
-            success = await self.notification_sender.send(config.group_id, message)
+            success = await self.notification_sender.send(config.unified_msg_origin, message)
             
             if success:
                 return {"status": "success", "message": "Notification sent"}

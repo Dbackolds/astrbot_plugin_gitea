@@ -17,8 +17,19 @@ class MonitorConfig:
     """仓库监控配置"""
     repo_url: str  # 仓库 URL
     secret: str  # Webhook 密钥
-    group_id: str  # 目标群组 ID
+    unified_msg_origin: str  # 目标会话的 unified_msg_origin
     created_at: str  # 创建时间
+    
+    @property
+    def group_id(self) -> str:
+        """从 unified_msg_origin 提取群组 ID（用于显示）"""
+        try:
+            parts = self.unified_msg_origin.split('_')
+            if len(parts) >= 3 and parts[1] == 'group':
+                return parts[2]
+            return "未知"
+        except:
+            return "未知"
 
 
 class ConfigManager:
@@ -79,20 +90,20 @@ class ConfigManager:
         
         return None
     
-    def add_monitor(self, repo_url: str, secret: str, group_id: str) -> bool:
+    def add_monitor(self, repo_url: str, secret: str, unified_msg_origin: str) -> bool:
         """
         添加仓库监控配置
         
         Args:
             repo_url: 仓库 URL
             secret: Webhook 密钥
-            group_id: 目标群组 ID
+            unified_msg_origin: 目标会话的 unified_msg_origin
             
         Returns:
             成功返回 True，失败返回 False
         """
         # 验证必需字段
-        if not repo_url or not secret or not group_id:
+        if not repo_url or not secret or not unified_msg_origin:
             logger.error("添加监控配置失败：缺少必需字段")
             return False
         
@@ -112,7 +123,7 @@ class ConfigManager:
         config = MonitorConfig(
             repo_url=repo_url,
             secret=secret,
-            group_id=group_id,
+            unified_msg_origin=unified_msg_origin,
             created_at=datetime.now().isoformat()
         )
         
@@ -120,7 +131,7 @@ class ConfigManager:
         
         # 保存到文件
         if self.save():
-            logger.info(f"成功添加仓库监控配置: {repo_url} -> 群组 {group_id}")
+            logger.info(f"成功添加仓库监控配置: {repo_url} -> {unified_msg_origin}")
             return True
         else:
             # 保存失败，回滚
