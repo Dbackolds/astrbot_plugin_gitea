@@ -41,18 +41,46 @@ class GiteaRepoMonitor(Star):
         # 数据应该存放在 data/plugin_data/{插件名}/ 目录下
         plugin_name = "astrbot_plugin_gitea"
         
-        # 获取 AstrBot 的根目录（通常是插件目录的上上级）
+        # 获取插件目录
         plugin_dir = os.path.dirname(os.path.abspath(__file__))
-        # 假设插件在 addons/plugins/astrbot_plugin_gitea/
-        # 需要回到根目录，然后进入 data/plugin_data/
-        astrbot_root = os.path.dirname(os.path.dirname(plugin_dir))
+        logger.info(f"插件目录: {plugin_dir}")
+        
+        # 查找 data 目录
+        # 插件可能在 /AstrBot/data/addons/plugins/xxx/ 或 /AstrBot/addons/plugins/xxx/
+        # 需要找到包含 data 目录的根目录
+        current = plugin_dir
+        astrbot_root = None
+        
+        # 向上查找，直到找到包含 data 目录的父目录
+        for _ in range(5):  # 最多向上查找5级
+            parent = os.path.dirname(current)
+            if parent == current:  # 已到达根目录
+                break
+            
+            # 检查当前目录是否是 data 目录
+            if os.path.basename(current) == "data":
+                astrbot_root = parent
+                break
+            
+            # 检查父目录是否包含 data 目录
+            potential_data_dir = os.path.join(parent, "data")
+            if os.path.exists(potential_data_dir) and os.path.isdir(potential_data_dir):
+                astrbot_root = parent
+                break
+            
+            current = parent
+        
+        # 如果没找到，使用插件目录的上上级作为备选
+        if astrbot_root is None:
+            astrbot_root = os.path.dirname(os.path.dirname(plugin_dir))
+            logger.warning(f"未找到 data 目录，使用默认根目录: {astrbot_root}")
+        
         data_dir = os.path.join(astrbot_root, "data", "plugin_data", plugin_name)
         
         # 确保数据目录存在
         os.makedirs(data_dir, exist_ok=True)
         
         storage_path = os.path.join(data_dir, "monitors.json")
-        logger.info(f"插件目录: {plugin_dir}")
         logger.info(f"AstrBot 根目录: {astrbot_root}")
         logger.info(f"数据目录: {data_dir}")
         logger.info(f"配置文件路径: {storage_path}")

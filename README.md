@@ -169,6 +169,15 @@
 - **WebhookHandler**: Webhook 处理器，协调各组件处理请求
 - **WebhookServer**: HTTP 服务器，接收 Gitea Webhook 请求
 
+### 数据存储
+
+配置数据存储在 AstrBot 的标准数据目录：
+```
+data/plugin_data/astrbot_plugin_gitea/monitors.json
+```
+
+这确保了数据的持久化和与其他插件的隔离。
+
 ## 许可证
 
 MIT License
