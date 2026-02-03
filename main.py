@@ -9,6 +9,7 @@ from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api import logger
 
 # 导入插件组件
+from .config_manager import ConfigManager
 from .signature_verifier import SignatureVerifier
 from .event_parser import EventParser
 from .message_formatter import MessageFormatter
@@ -36,6 +37,10 @@ class GiteaRepoMonitor(Star):
         webhook_host = plugin_config.get("webhook_host", "0.0.0.0")
         webhook_port = plugin_config.get("webhook_port", 8765)
         
+        # 初始化配置管理器（统一存储）
+        storage_path = os.path.join(os.path.dirname(__file__), "monitors.json")
+        self.config_manager = ConfigManager(storage_path)
+        
         # 初始化其他组件
         self.signature_verifier = SignatureVerifier()
         self.event_parser = EventParser()
@@ -44,7 +49,7 @@ class GiteaRepoMonitor(Star):
         
         # 初始化 Webhook 处理器
         self.webhook_handler = WebhookHandler(
-            context,
+            self.config_manager,
             self.signature_verifier,
             self.event_parser,
             self.message_formatter,
@@ -72,62 +77,35 @@ class GiteaRepoMonitor(Star):
             logger.error(f"停止插件时发生错误: {e}")
     
     def _get_monitors(self):
-        """获取所有监控配置（WebUI + 运行时）"""
+        """获取所有监控配置"""
         import json
         from pathlib import Path
         
-        # 从 WebUI 配置获取
-        plugin_config = self.context.get_config()
-        webui_monitors = plugin_config.get("monitors", [])
-        
-        # 从运行时文件获取
-        runtime_monitors = []
+        # 只从运行时文件获取
+        monitors = []
         try:
             data_path = Path(os.path.join(os.path.dirname(__file__), "runtime_monitors.json"))
             if data_path.exists():
                 with open(data_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    runtime_monitors = data.get("monitors", [])
+                    monitors = data.get("monitors", [])
         except Exception as e:
-            logger.debug(f"读取运行时配置失败: {e}")
+            logger.error(f"读取监控配置失败: {e}")
         
-        # 合并配置（去重，以 repo_url 为键）
-        all_monitors = {}
-        
-        # 先添加 WebUI 配置
-        for monitor in webui_monitors:
-            repo_url = monitor.get("repo_url")
-            if repo_url:
-                all_monitors[repo_url] = monitor
-        
-        # 再添加运行时配置（会覆盖同名的 WebUI 配置）
-        for monitor in runtime_monitors:
-            repo_url = monitor.get("repo_url")
-            if repo_url:
-                all_monitors[repo_url] = monitor
-        
-        return list(all_monitors.values())
+        return monitors
     
     def _save_monitors(self, monitors):
-        """保存监控配置（只保存运行时添加的）"""
+        """保存监控配置"""
         try:
             import json
             from pathlib import Path
             
-            # 获取 WebUI 配置的 repo_url 列表
-            plugin_config = self.context.get_config()
-            webui_monitors = plugin_config.get("monitors", [])
-            webui_repo_urls = {m.get("repo_url") for m in webui_monitors}
-            
-            # 只保存不在 WebUI 配置中的监控（即通过指令添加的）
-            runtime_monitors = [m for m in monitors if m.get("repo_url") not in webui_repo_urls]
-            
             data_path = Path(os.path.join(os.path.dirname(__file__), "runtime_monitors.json"))
             
             with open(data_path, 'w', encoding='utf-8') as f:
-                json.dump({"monitors": runtime_monitors}, f, ensure_ascii=False, indent=2)
+                json.dump({"monitors": monitors}, f, ensure_ascii=False, indent=2)
             
-            logger.info(f"运行时监控配置已保存: {len(runtime_monitors)} 个")
+            logger.info(f"监控配置已保存: {len(monitors)} 个")
             return True
         except Exception as e:
             logger.error(f"保存监控配置失败: {e}")
@@ -166,23 +144,14 @@ class GiteaRepoMonitor(Star):
             yield event.plain_result(f"❌ 该仓库的监控配置已存在！\n仓库: {repo_url}")
             return
         
-        # 获取当前监控列表
-        monitors = self._get_monitors()
+        # 添加监控配置
+        success = self.config_manager.add_monitor(repo_url, secret, group_id)
         
-        # 添加新的监控配置
-        new_monitor = {
-            "repo_url": repo_url,
-            "secret": secret,
-            "group_id": group_id
-        }
-        monitors.append(new_monitor)
-        
-        # 保存配置
-        if self._save_monitors(monitors):
+        if success:
             yield event.plain_result(f"✅ 成功添加监控配置！\n仓库: {repo_url}\n目标群组: {group_id}\n\n💡 提示：配置已实时保存")
             logger.info(f"通过指令添加监控配置: {repo_url} -> 群组 {group_id}")
         else:
-            yield event.plain_result(f"❌ 添加监控配置失败！\n保存配置时发生错误")
+            yield event.plain_result(f"❌ 添加监控配置失败！\n可能原因：保存配置时发生错误")
     
     @gitea_group.command("list")
     async def list_monitors(self, event: AstrMessageEvent):
@@ -200,10 +169,9 @@ class GiteaRepoMonitor(Star):
         message = f"📋 当前监控配置列表（共 {len(monitors)} 个）:\n\n"
         
         for i, config in enumerate(monitors, 1):
-            repo_url = config.get("repo_url", "")
-            group_id = config.get("group_id", "")
-            message += f"{i}. {repo_url}\n"
-            message += f"   目标群组: {group_id}\n\n"
+            message += f"{i}. {config.repo_url}\n"
+            message += f"   目标群组: {config.group_id}\n"
+            message += f"   创建时间: {config.created_at}\n\n"
         
         yield event.plain_result(message.strip())
     
@@ -219,22 +187,14 @@ class GiteaRepoMonitor(Star):
             yield event.plain_result("❌ 请提供仓库 URL！\n用法: /gitea remove <repo_url>")
             return
         
-        # 获取当前监控列表
-        monitors = self._get_monitors()
+        # 删除监控配置
+        success = self.config_manager.remove_monitor(repo_url)
         
-        # 查找并删除
-        new_monitors = [m for m in monitors if m.get("repo_url") != repo_url]
-        
-        if len(new_monitors) == len(monitors):
-            yield event.plain_result(f"❌ 删除失败！\n该仓库的监控配置不存在")
-            return
-        
-        # 保存配置
-        if self._save_monitors(new_monitors):
+        if success:
             yield event.plain_result(f"✅ 成功删除监控配置！\n仓库: {repo_url}")
             logger.info(f"通过指令删除监控配置: {repo_url}")
         else:
-            yield event.plain_result(f"❌ 删除失败！\n保存配置时发生错误")
+            yield event.plain_result(f"❌ 删除失败！\n该仓库的监控配置不存在")
     
     @gitea_group.command("info")
     async def show_info(self, event: AstrMessageEvent):

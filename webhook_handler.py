@@ -5,6 +5,7 @@ Webhook 处理器模块
 import json
 from typing import Dict, Any
 from astrbot.api import logger
+from .config_manager import ConfigManager
 from .signature_verifier import SignatureVerifier
 from .event_parser import EventParser
 from .message_formatter import MessageFormatter
@@ -16,7 +17,7 @@ class WebhookHandler:
     
     def __init__(
         self,
-        context,
+        config_manager: ConfigManager,
         signature_verifier: SignatureVerifier,
         event_parser: EventParser,
         message_formatter: MessageFormatter,
@@ -26,27 +27,17 @@ class WebhookHandler:
         初始化 Webhook 处理器
         
         Args:
-            context: AstrBot Context 对象
+            config_manager: 配置管理器
             signature_verifier: 签名验证器
             event_parser: 事件解析器
             message_formatter: 消息格式化器
             notification_sender: 通知发送器
         """
-        self.context = context
+        self.config_manager = config_manager
         self.signature_verifier = signature_verifier
         self.event_parser = event_parser
         self.message_formatter = message_formatter
         self.notification_sender = notification_sender
-    
-    def _get_monitor_config(self, repo_url: str):
-        """获取指定仓库的监控配置"""
-        plugin_config = self.context.get_config()
-        monitors = plugin_config.get("monitors", [])
-        
-        for monitor in monitors:
-            if monitor.get("repo_url") == repo_url:
-                return monitor
-        return None
     
     async def process_webhook(self, headers: Dict[str, str], body: bytes) -> Dict[str, Any]:
         """
@@ -86,15 +77,18 @@ class WebhookHandler:
                 return {"status": "error", "message": "Missing repository URL"}
             
             # 查找仓库配置
-            config = self._get_monitor_config(repo_url)
+            config = self.config_manager.get_monitor(repo_url)
             
             if not config:
                 logger.warning(f"未找到仓库 {repo_url} 的监控配置")
                 return {"status": "ignored", "message": "Repository not monitored"}
             
+            logger.info(f"找到监控配置: repo_url={repo_url}, group_id={config.group_id}")
+            
             # 验证签名
-            secret = config.get("secret", "")
-            if not self.signature_verifier.verify(body, signature, secret):
+            logger.debug(f"使用密钥验证签名: {config.secret[:5]}...")
+            
+            if not self.signature_verifier.verify(body, signature, config.secret):
                 logger.warning(f"签名验证失败: {repo_url}")
                 return {"status": "error", "message": "Invalid signature"}
             
@@ -107,10 +101,12 @@ class WebhookHandler:
             
             # 格式化消息
             message = self.message_formatter.format(parsed_event)
+            logger.info(f"格式化后的消息: {message[:100]}...")
             
             # 发送通知
-            group_id = config.get("group_id", "")
-            success = await self.notification_sender.send(group_id, message)
+            logger.info(f"准备发送到群组: {config.group_id}")
+            
+            success = await self.notification_sender.send(config.group_id, message)
             
             if success:
                 return {"status": "success", "message": "Notification sent"}

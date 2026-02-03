@@ -10,33 +10,5 @@
     "type": "string",
     "default": "0.0.0.0",
     "hint": "通常使用 0.0.0.0 监听所有网络接口，以便接收来自外部的 Webhook 请求。"
-  },
-  "monitors": {
-    "description": "仓库监控配置列表",
-    "type": "template_list",
-    "hint": "配置需要监控的 Gitea 仓库和对应的通知群组",
-    "templates": {
-      "monitor": {
-        "name": "仓库监控",
-        "hint": "添加一个 Gitea 仓库监控配置",
-        "items": {
-          "repo_url": {
-            "description": "仓库 URL",
-            "type": "string",
-            "hint": "Gitea 仓库的完整 URL，例如：https://gitea.example.com/user/repo"
-          },
-          "secret": {
-            "description": "Webhook 密钥",
-            "type": "string",
-            "hint": "与 Gitea Webhook 配置中的密钥保持一致，用于验证请求来源"
-          },
-          "group_id": {
-            "description": "目标 QQ 群号",
-            "type": "string",
-            "hint": "接收通知的 QQ 群号"
-          }
-        }
-      }
-    }
   }
 }
