@@ -52,11 +52,8 @@ class NotificationSender:
                 try:
                     logger.debug(f"尝试使用 unified_msg_origin: {umo}")
                     
-                    # 使用 context.send_message 发送
-                    result = await self.context.send_message(
-                        unified_msg_origin=umo,
-                        message_chain=message_chain
-                    )
+                    # 使用 context.send_message 发送（位置参数）
+                    result = await self.context.send_message(umo, message_chain)
                     
                     logger.info(f"✅ 成功发送通知到群组 {group_id} (使用格式: {umo})")
                     logger.debug(f"发送结果: {result}")
