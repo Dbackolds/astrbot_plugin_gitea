@@ -38,8 +38,23 @@ class GiteaRepoMonitor(Star):
         webhook_port = plugin_config.get("webhook_port", 8765)
         
         # 初始化配置管理器
-        storage_path = get_astrbot_data_path() / "plugin_data" / "gitea-repo-monitor" / "monitors.json"
+        storage_path = get_astrbot_data_path() / "plugin_data" / "astrbot_plugin_gitea" / "monitors.json"
         self.config_manager = ConfigManager(str(storage_path))
+        
+        # 从插件配置中加载监控列表
+        monitors_config = plugin_config.get("monitors", [])
+        if monitors_config:
+            logger.info(f"从插件配置中加载 {len(monitors_config)} 个监控配置")
+            for monitor in monitors_config:
+                repo_url = monitor.get("repo_url", "")
+                secret = monitor.get("secret", "")
+                group_id = monitor.get("group_id", "")
+                
+                if repo_url and secret and group_id:
+                    # 检查是否已存在，避免重复添加
+                    if not self.config_manager.get_monitor(repo_url):
+                        self.config_manager.add_monitor(repo_url, secret, group_id)
+                        logger.info(f"已添加监控配置: {repo_url} -> 群组 {group_id}")
         
         # 初始化其他组件
         self.signature_verifier = SignatureVerifier()
