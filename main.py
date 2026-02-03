@@ -3,14 +3,12 @@ Gitea 仓库监控插件
 监控 Gitea 仓库的推送、合并请求和议题事件，并发送通知到指定的 QQ 群组
 """
 import os
-from pathlib import Path
+from datetime import datetime
 from astrbot.api.star import Context, Star, register
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api import logger
-from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 
 # 导入插件组件
-from .config_manager import ConfigManager
 from .signature_verifier import SignatureVerifier
 from .event_parser import EventParser
 from .message_formatter import MessageFormatter
@@ -38,35 +36,15 @@ class GiteaRepoMonitor(Star):
         webhook_host = plugin_config.get("webhook_host", "0.0.0.0")
         webhook_port = plugin_config.get("webhook_port", 8765)
         
-        # 初始化配置管理器
-        data_path = get_astrbot_data_path()
-        storage_path = os.path.join(data_path, "plugin_data", "astrbot_plugin_gitea", "monitors.json")
-        self.config_manager = ConfigManager(storage_path)
-        
-        # 从插件配置中加载监控列表
-        monitors_config = plugin_config.get("monitors", [])
-        if monitors_config:
-            logger.info(f"从插件配置中加载 {len(monitors_config)} 个监控配置")
-            for monitor in monitors_config:
-                repo_url = monitor.get("repo_url", "")
-                secret = monitor.get("secret", "")
-                group_id = monitor.get("group_id", "")
-                
-                if repo_url and secret and group_id:
-                    # 检查是否已存在，避免重复添加
-                    if not self.config_manager.get_monitor(repo_url):
-                        self.config_manager.add_monitor(repo_url, secret, group_id)
-                        logger.info(f"已添加监控配置: {repo_url} -> 群组 {group_id}")
-        
         # 初始化其他组件
         self.signature_verifier = SignatureVerifier()
         self.event_parser = EventParser()
         self.message_formatter = MessageFormatter()
-        self.notification_sender = NotificationSender(context, self.config_manager)
+        self.notification_sender = NotificationSender(context)
         
         # 初始化 Webhook 处理器
         self.webhook_handler = WebhookHandler(
-            self.config_manager,
+            context,
             self.signature_verifier,
             self.event_parser,
             self.message_formatter,
@@ -93,6 +71,29 @@ class GiteaRepoMonitor(Star):
         except Exception as e:
             logger.error(f"停止插件时发生错误: {e}")
     
+    def _get_monitors(self):
+        """获取所有监控配置"""
+        plugin_config = self.context.get_config()
+        return plugin_config.get("monitors", [])
+    
+    def _save_monitors(self, monitors):
+        """保存监控配置到插件配置"""
+        try:
+            # 更新配置
+            self.context.update_config({"monitors": monitors})
+            return True
+        except Exception as e:
+            logger.error(f"保存监控配置失败: {e}")
+            return False
+    
+    def _find_monitor(self, repo_url):
+        """查找指定仓库的监控配置"""
+        monitors = self._get_monitors()
+        for monitor in monitors:
+            if monitor.get("repo_url") == repo_url:
+                return monitor
+        return None
+    
     # ==================== 管理指令 ====================
     
     @filter.command_group("gitea")
@@ -113,13 +114,28 @@ class GiteaRepoMonitor(Star):
             yield event.plain_result("❌ 参数不完整！\n用法: /gitea add <repo_url> <secret> <group_id>")
             return
         
-        # 添加监控配置
-        success = self.config_manager.add_monitor(repo_url, secret, group_id)
+        # 检查是否已存在
+        if self._find_monitor(repo_url):
+            yield event.plain_result(f"❌ 该仓库的监控配置已存在！\n仓库: {repo_url}")
+            return
         
-        if success:
-            yield event.plain_result(f"✅ 成功添加监控配置！\n仓库: {repo_url}\n目标群组: {group_id}")
+        # 获取当前监控列表
+        monitors = self._get_monitors()
+        
+        # 添加新的监控配置
+        new_monitor = {
+            "repo_url": repo_url,
+            "secret": secret,
+            "group_id": group_id
+        }
+        monitors.append(new_monitor)
+        
+        # 保存配置
+        if self._save_monitors(monitors):
+            yield event.plain_result(f"✅ 成功添加监控配置！\n仓库: {repo_url}\n目标群组: {group_id}\n\n💡 提示：配置已同步到 WebUI，请刷新页面查看")
+            logger.info(f"通过指令添加监控配置: {repo_url} -> 群组 {group_id}")
         else:
-            yield event.plain_result(f"❌ 添加监控配置失败！\n可能原因：该仓库已存在监控配置或参数无效")
+            yield event.plain_result(f"❌ 添加监控配置失败！\n保存配置时发生错误")
     
     @gitea_group.command("list")
     async def list_monitors(self, event: AstrMessageEvent):
@@ -128,7 +144,7 @@ class GiteaRepoMonitor(Star):
         
         用法: /gitea list
         """
-        monitors = self.config_manager.list_monitors()
+        monitors = self._get_monitors()
         
         if not monitors:
             yield event.plain_result("📋 当前没有任何监控配置")
@@ -137,9 +153,10 @@ class GiteaRepoMonitor(Star):
         message = f"📋 当前监控配置列表（共 {len(monitors)} 个）:\n\n"
         
         for i, config in enumerate(monitors, 1):
-            message += f"{i}. {config.repo_url}\n"
-            message += f"   目标群组: {config.group_id}\n"
-            message += f"   创建时间: {config.created_at}\n\n"
+            repo_url = config.get("repo_url", "")
+            group_id = config.get("group_id", "")
+            message += f"{i}. {repo_url}\n"
+            message += f"   目标群组: {group_id}\n\n"
         
         yield event.plain_result(message.strip())
     
@@ -155,12 +172,22 @@ class GiteaRepoMonitor(Star):
             yield event.plain_result("❌ 请提供仓库 URL！\n用法: /gitea remove <repo_url>")
             return
         
-        success = self.config_manager.remove_monitor(repo_url)
+        # 获取当前监控列表
+        monitors = self._get_monitors()
         
-        if success:
-            yield event.plain_result(f"✅ 成功删除监控配置！\n仓库: {repo_url}")
-        else:
+        # 查找并删除
+        new_monitors = [m for m in monitors if m.get("repo_url") != repo_url]
+        
+        if len(new_monitors) == len(monitors):
             yield event.plain_result(f"❌ 删除失败！\n该仓库的监控配置不存在")
+            return
+        
+        # 保存配置
+        if self._save_monitors(new_monitors):
+            yield event.plain_result(f"✅ 成功删除监控配置！\n仓库: {repo_url}\n\n💡 提示：配置已同步到 WebUI，请刷新页面查看")
+            logger.info(f"通过指令删除监控配置: {repo_url}")
+        else:
+            yield event.plain_result(f"❌ 删除失败！\n保存配置时发生错误")
     
     @gitea_group.command("info")
     async def show_info(self, event: AstrMessageEvent):
@@ -195,6 +222,7 @@ http://你的服务器IP:{webhook_port}/webhook
 ⚠️ 注意事项:
 - 确保服务器端口 {webhook_port} 可从外网访问
 - secret 需要与 Gitea Webhook 配置中的密钥一致
-- group_id 是目标 QQ 群的群号"""
+- group_id 是目标 QQ 群的群号
+- 通过指令或 WebUI 添加的配置会自动同步"""
         
         yield event.plain_result(message)
