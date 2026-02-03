@@ -84,14 +84,20 @@ class WebhookServer:
             aiohttp 响应对象
         """
         try:
+            logger.info(f"收到 Webhook 请求: {request.method} {request.path}")
+            
             # 提取请求头
             headers = dict(request.headers)
+            logger.debug(f"请求头: {headers}")
             
             # 读取请求体
             body = await request.read()
+            logger.debug(f"请求体大小: {len(body)} 字节")
             
             # 调用处理器
+            logger.info("开始处理 Webhook...")
             result = await self.handler.process_webhook(headers, body)
+            logger.info(f"Webhook 处理完成: {result}")
             
             # 根据处理结果返回响应
             status = result.get("status", "error")
@@ -133,7 +139,7 @@ class WebhookServer:
                 )
                 
         except Exception as e:
-            logger.error(f"处理 Webhook 请求时发生异常: {e}")
+            logger.error(f"处理 Webhook 请求时发生异常: {e}", exc_info=True)
             return web.Response(
                 status=500,
                 text=f"Internal server error: {str(e)}",
