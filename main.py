@@ -179,7 +179,7 @@ class GiteaRepoMonitor(Star):
         
         # 保存配置
         if self._save_monitors(monitors):
-            yield event.plain_result(f"✅ 成功添加监控配置！\n仓库: {repo_url}\n目标群组: {group_id}\n\n💡 提示：通过指令添加的配置会在插件重启后保留")
+            yield event.plain_result(f"✅ 成功添加监控配置！\n仓库: {repo_url}\n目标群组: {group_id}\n\n💡 提示：配置已实时保存")
             logger.info(f"通过指令添加监控配置: {repo_url} -> 群组 {group_id}")
         else:
             yield event.plain_result(f"❌ 添加监控配置失败！\n保存配置时发生错误")
