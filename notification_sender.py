@@ -49,9 +49,11 @@ class NotificationSender:
             
             # 尝试发送消息
             last_error = None
+            error_details = []
+            
             for umo in unified_msg_origins:
                 try:
-                    logger.debug(f"尝试使用 unified_msg_origin: {umo}")
+                    logger.info(f"尝试使用 unified_msg_origin: {umo}")
                     
                     # 使用 context.send_message 发送（位置参数）
                     result = await self.context.send_message(umo, message_chain)
@@ -62,12 +64,17 @@ class NotificationSender:
                     
                 except Exception as e:
                     last_error = e
-                    error_msg = str(e)
-                    logger.debug(f"使用 {umo} 发送失败: {type(e).__name__}: {error_msg}")
+                    error_msg = f"{type(e).__name__}: {str(e)}"
+                    error_details.append(f"  - {umo}: {error_msg}")
+                    logger.info(f"使用 {umo} 发送失败: {error_msg}")
                     continue
             
             # 所有格式都失败，记录详细错误
             logger.error(f"❌ 所有格式都发送失败，群组 {group_id}")
+            logger.error("尝试的所有格式及错误:")
+            for detail in error_details:
+                logger.error(detail)
+            
             if last_error:
                 logger.error(f"最后一次错误类型: {type(last_error).__name__}")
                 logger.error(f"最后一次错误信息: {last_error}")
