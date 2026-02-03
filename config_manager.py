@@ -195,14 +195,28 @@ class ConfigManager:
                 "monitors": [asdict(config) for config in self.monitors.values()]
             }
             
+            logger.info(f"准备保存配置到: {self.storage_path}")
+            logger.info(f"配置数量: {len(self.monitors)}")
+            
             with open(self.storage_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             
-            logger.debug(f"配置已保存到 {self.storage_path}")
+            logger.info(f"配置已成功保存到 {self.storage_path}")
+            
+            # 验证文件是否真的被创建
+            if self.storage_path.exists():
+                file_size = self.storage_path.stat().st_size
+                logger.info(f"文件已创建，大小: {file_size} 字节")
+            else:
+                logger.error(f"文件保存后不存在: {self.storage_path}")
+                return False
+            
             return True
             
         except Exception as e:
             logger.error(f"保存配置失败: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return False
     
     def load(self) -> bool:
@@ -213,8 +227,10 @@ class ConfigManager:
             成功返回 True，失败返回 False
         """
         try:
+            logger.info(f"尝试从 {self.storage_path} 加载配置")
+            
             if not self.storage_path.exists():
-                logger.info("配置文件不存在，使用空配置")
+                logger.info(f"配置文件不存在: {self.storage_path}，使用空配置")
                 return True
             
             with open(self.storage_path, 'r', encoding='utf-8') as f:
@@ -232,4 +248,6 @@ class ConfigManager:
             
         except Exception as e:
             logger.error(f"加载配置失败: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return False

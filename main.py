@@ -37,8 +37,26 @@ class GiteaRepoMonitor(Star):
         webhook_host = plugin_config.get("webhook_host", "0.0.0.0")
         webhook_port = plugin_config.get("webhook_port", 8765)
         
-        # 初始化配置管理器（统一存储）
-        storage_path = os.path.join(os.path.dirname(__file__), "monitors.json")
+        # 初始化配置管理器（使用 AstrBot 标准数据目录）
+        # 数据应该存放在 data/plugin_data/{插件名}/ 目录下
+        plugin_name = "astrbot_plugin_gitea"
+        
+        # 获取 AstrBot 的根目录（通常是插件目录的上上级）
+        plugin_dir = os.path.dirname(os.path.abspath(__file__))
+        # 假设插件在 addons/plugins/astrbot_plugin_gitea/
+        # 需要回到根目录，然后进入 data/plugin_data/
+        astrbot_root = os.path.dirname(os.path.dirname(plugin_dir))
+        data_dir = os.path.join(astrbot_root, "data", "plugin_data", plugin_name)
+        
+        # 确保数据目录存在
+        os.makedirs(data_dir, exist_ok=True)
+        
+        storage_path = os.path.join(data_dir, "monitors.json")
+        logger.info(f"插件目录: {plugin_dir}")
+        logger.info(f"AstrBot 根目录: {astrbot_root}")
+        logger.info(f"数据目录: {data_dir}")
+        logger.info(f"配置文件路径: {storage_path}")
+        
         self.config_manager = ConfigManager(storage_path)
         
         # 初始化其他组件
