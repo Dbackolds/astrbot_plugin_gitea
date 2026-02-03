@@ -8,6 +8,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import List, Optional
 from pathlib import Path
+from urllib.parse import urlparse
 from astrbot.api import logger
 
 
@@ -39,6 +40,45 @@ class ConfigManager:
         # 加载现有配置
         self.load()
     
+    @staticmethod
+    def _normalize_repo_path(url: str) -> str:
+        """
+        标准化仓库路径，提取路径部分用于匹配
+        
+        Args:
+            url: 仓库 URL
+            
+        Returns:
+            标准化的仓库路径（小写，去除前后斜杠）
+        """
+        try:
+            parsed = urlparse(url)
+            # 提取路径部分，去除前后斜杠，转小写
+            path = parsed.path.strip('/').lower()
+            return path
+        except Exception as e:
+            logger.warning(f"解析 URL 失败: {url}, 错误: {e}")
+            return url.lower()
+    
+    def _find_monitor_by_path(self, repo_url: str) -> Optional[MonitorConfig]:
+        """
+        通过仓库路径查找监控配置（支持不同域名的相同仓库）
+        
+        Args:
+            repo_url: 仓库 URL
+            
+        Returns:
+            MonitorConfig 对象，如果不存在则返回 None
+        """
+        target_path = self._normalize_repo_path(repo_url)
+        
+        for config in self.monitors.values():
+            config_path = self._normalize_repo_path(config.repo_url)
+            if config_path == target_path:
+                return config
+        
+        return None
+    
     def add_monitor(self, repo_url: str, secret: str, group_id: str) -> bool:
         """
         添加仓库监控配置
@@ -56,9 +96,16 @@ class ConfigManager:
             logger.error("添加监控配置失败：缺少必需字段")
             return False
         
-        # 检查是否已存在
+        # 检查是否已存在（精确匹配）
         if repo_url in self.monitors:
             logger.warning(f"仓库 {repo_url} 的监控配置已存在")
+            return False
+        
+        # 检查是否存在相同路径的配置（路径匹配）
+        existing_config = self._find_monitor_by_path(repo_url)
+        if existing_config:
+            logger.warning(f"仓库路径已存在监控配置: {existing_config.repo_url}")
+            logger.info(f"提示: 新 URL {repo_url} 与已有配置 {existing_config.repo_url} 指向同一仓库")
             return False
         
         # 创建配置
@@ -106,7 +153,7 @@ class ConfigManager:
     
     def get_monitor(self, repo_url: str) -> Optional[MonitorConfig]:
         """
-        获取指定仓库的监控配置
+        获取指定仓库的监控配置（支持智能匹配）
         
         Args:
             repo_url: 仓库 URL
@@ -114,7 +161,18 @@ class ConfigManager:
         Returns:
             MonitorConfig 对象，如果不存在则返回 None
         """
-        return self.monitors.get(repo_url)
+        # 先尝试精确匹配
+        config = self.monitors.get(repo_url)
+        if config:
+            return config
+        
+        # 如果精确匹配失败，尝试路径匹配
+        config = self._find_monitor_by_path(repo_url)
+        if config:
+            logger.info(f"通过路径匹配找到配置: {repo_url} -> {config.repo_url}")
+            return config
+        
+        return None
     
     def list_monitors(self) -> List[MonitorConfig]:
         """

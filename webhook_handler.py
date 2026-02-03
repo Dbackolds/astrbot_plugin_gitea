@@ -76,11 +76,14 @@ class WebhookHandler:
                 logger.error("载荷中缺少仓库 URL")
                 return {"status": "error", "message": "Missing repository URL"}
             
-            # 查找仓库配置
+            logger.info(f"Webhook 仓库 URL: {repo_url}")
+            
+            # 查找仓库配置（支持智能匹配）
             config = self.config_manager.get_monitor(repo_url)
             
             if not config:
                 logger.warning(f"未找到仓库 {repo_url} 的监控配置")
+                logger.info(f"当前已配置的仓库: {[m.repo_url for m in self.config_manager.list_monitors()]}")
                 return {"status": "ignored", "message": "Repository not monitored"}
             
             logger.info(f"找到监控配置: repo_url={repo_url}, group_id={config.group_id}")
