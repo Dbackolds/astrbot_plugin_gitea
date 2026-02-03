@@ -79,13 +79,11 @@ class GiteaRepoMonitor(Star):
     # ==================== 管理指令 ====================
     
     @filter.command_group("gitea")
-    @filter.admin()
     def gitea_group(self):
         """Gitea 仓库监控管理指令组"""
         pass
     
     @gitea_group.command("add")
-    @filter.admin()
     async def add_monitor(self, event: AstrMessageEvent, repo_url: str, secret: str, group_id: str):
         """
         添加仓库监控配置
@@ -107,7 +105,6 @@ class GiteaRepoMonitor(Star):
             yield event.plain_result(f"❌ 添加监控配置失败！\n可能原因：该仓库已存在监控配置或参数无效")
     
     @gitea_group.command("list")
-    @filter.admin()
     async def list_monitors(self, event: AstrMessageEvent):
         """
         列出所有监控配置
@@ -130,7 +127,6 @@ class GiteaRepoMonitor(Star):
         yield event.plain_result(message.strip())
     
     @gitea_group.command("remove")
-    @filter.admin()
     async def remove_monitor(self, event: AstrMessageEvent, repo_url: str):
         """
         删除监控配置
@@ -150,7 +146,6 @@ class GiteaRepoMonitor(Star):
             yield event.plain_result(f"❌ 删除失败！\n该仓库的监控配置不存在")
     
     @gitea_group.command("info")
-    @filter.admin()
     async def show_info(self, event: AstrMessageEvent):
         """
         显示 Webhook 配置信息

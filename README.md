@@ -12,16 +12,8 @@
 
 ## 安装
 
-1. 将插件文件放置到 AstrBot 的插件目录：
-   ```
-   data/plugins/gitea-repo-monitor/
-   ```
-
-2. 安装依赖：
-   ```bash
-   pip install -r requirements.txt
-   ```
-
+1. 将插件文件放置到 AstrBot 的插件目录
+2. 安装依赖：`pip install -r requirements.txt`
 3. 重启 AstrBot
 
 ## 配置
@@ -107,9 +99,9 @@
 ### Pull Request 事件
 
 ```
-🔀 [仓库名] 合并请求
-📋 #123: Add new feature
-👤 发起者: username
+�  [仓库名] 合并请求
+� #新123: Add new feature
+� 发起者: usern]ame
 🎯 目标分支: main ← feature-branch
 ✅ 状态: 打开
 🔗 查看详情: [URL]
@@ -120,7 +112,7 @@
 ```
 🐛 [仓库名] 议题
 📋 #456: Bug report
-👤 发起者: username
+� 发起详者: username
 ✅ 状态: 打开
 🔗 查看详情: [URL]
 ```
@@ -168,32 +160,6 @@
 - **NotificationSender**: 通知发送器，将消息发送到目标 QQ 群组
 - **WebhookHandler**: Webhook 处理器，协调各组件处理请求
 - **WebhookServer**: HTTP 服务器，接收 Gitea Webhook 请求
-
-## 开发
-
-### 项目结构
-
-```
-gitea-repo-monitor/
-├── main.py                    # 插件主类
-├── config_manager.py          # 配置管理器
-├── signature_verifier.py      # 签名验证器
-├── event_parser.py            # 事件解析器
-├── message_formatter.py       # 消息格式化器
-├── notification_sender.py     # 通知发送器
-├── webhook_handler.py         # Webhook 处理器
-├── webhook_server.py          # HTTP 服务器
-├── metadata.yaml              # 插件元数据
-├── _conf_schema.json          # 配置 schema
-├── requirements.txt           # 依赖列表
-└── README.md                  # 说明文档
-```
-
-### 依赖
-
-- `aiohttp>=3.9.0`: 异步 HTTP 服务器
-- `hypothesis>=6.0.0`: 属性测试框架
-- `pytest-asyncio>=0.21.0`: 异步测试支持
 
 ## 许可证
 
