@@ -115,35 +115,50 @@ class GiteaRepoMonitor(Star):
         添加仓库监控配置
         
         用法: 
-          /gitea add <repo_url> <secret>              - 自动使用当前群组
-          /gitea add <repo_url> <secret> <group_id>   - 指定目标群组
+          /gitea add <repo_url> <secret>              - 自动使用当前群组（必须在群组中执行）
+          /gitea add <repo_url> <secret> <group_id>   - 指定目标群组（需要知道正确的会话ID）
         
         示例: 
           /gitea add https://gitea.example.com/user/repo my_secret_key
-          /gitea add https://gitea.example.com/user/repo my_secret_key 1077066122
+        
+        ⚠️ 建议：请在目标群组中执行此命令，不要手动指定 group_id
         """
         # 验证参数
         if not repo_url or not secret:
-            yield event.plain_result("❌ 参数不完整！\n用法: /gitea add <repo_url> <secret> [group_id]\n\n💡 提示：不提供 group_id 时会自动使用当前群组")
+            yield event.plain_result("❌ 参数不完整！\n用法: /gitea add <repo_url> <secret>\n\n💡 提示：请在目标群组中执行此命令")
             return
         
         # 获取当前会话的 unified_msg_origin
         current_unified_msg_origin = event.unified_msg_origin
         logger.info(f"收到 add 命令，当前 unified_msg_origin: {current_unified_msg_origin}")
         
+        # 检查是否在群组中执行
+        parts = current_unified_msg_origin.split(':')
+        if len(parts) >= 3:
+            message_type = parts[1]
+            # 检查是否是群组消息（可能是 GroupMessage 或其他群组相关类型）
+            is_group = 'group' in message_type.lower()
+            
+            if not is_group and not group_id:
+                yield event.plain_result(
+                    "❌ 请在目标群组中执行此命令！\n\n"
+                    f"当前会话类型: {message_type}\n"
+                    "💡 提示：机器人只能向群组发送通知，请在目标群组中执行 /gitea add 命令"
+                )
+                return
+        
         # 如果提供了 group_id，需要替换当前会话中的群号部分
         if group_id:
             # 从当前会话提取平台信息和消息类型
             # 格式: {platform_id}:{message_type}:{session_id}
-            parts = current_unified_msg_origin.split(':')
             if len(parts) >= 3:
-                # 保持平台和消息类型不变，只替换 session_id
                 platform = parts[0]
                 message_type = parts[1]
+                # 只替换 session_id，保持消息类型不变
                 unified_msg_origin = f"{platform}:{message_type}:{group_id}"
                 logger.info(f"使用指定群号构造 unified_msg_origin: {unified_msg_origin}")
+                logger.warning(f"⚠️ 手动指定群号可能导致消息类型不匹配，建议在目标群组中执行命令")
             else:
-                # 如果无法解析，直接使用当前会话格式但替换最后的 ID
                 logger.warning(f"无法解析当前会话格式，使用当前会话: {current_unified_msg_origin}")
                 unified_msg_origin = current_unified_msg_origin
         else:
@@ -152,7 +167,6 @@ class GiteaRepoMonitor(Star):
             logger.info(f"使用当前会话: {unified_msg_origin}")
         
         # 提取群组 ID（用于显示）
-        parts = unified_msg_origin.split(':')
         display_group_id = parts[2] if len(parts) >= 3 else parts[-1]
         
         # 检查是否已存在
@@ -237,15 +251,16 @@ http://你的服务器IP:{webhook_port}/webhook
 6. 保存配置
 
 💡 使用指令:
-/gitea add <repo_url> <secret> - 添加监控（在目标群组中执行）
+/gitea add <repo_url> <secret> - 添加监控（⚠️ 必须在目标群组中执行）
 /gitea list - 查看所有监控
 /gitea remove <repo_url> - 删除监控
 /gitea info - 查看此帮助信息
 
-⚠️ 注意事项:
+⚠️ 重要提示:
+- 必须在目标群组中执行 /gitea add 命令
+- 不要在私聊中手动指定群号，这会导致消息类型错误
 - 确保服务器端口 {webhook_port} 可从外网访问
 - secret 需要与 Gitea Webhook 配置中的密钥一致
-- 必须在目标群组中执行 add 命令
-- 插件会自动使用当前群组作为通知目标"""
+- QQ 适配器必须正常运行"""
         
         yield event.plain_result(message)
