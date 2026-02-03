@@ -78,46 +78,17 @@ class GiteaRepoMonitor(Star):
     
     def _get_monitors(self):
         """获取所有监控配置"""
-        import json
-        from pathlib import Path
-        
-        # 只从运行时文件获取
-        monitors = []
-        try:
-            data_path = Path(os.path.join(os.path.dirname(__file__), "runtime_monitors.json"))
-            if data_path.exists():
-                with open(data_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    monitors = data.get("monitors", [])
-        except Exception as e:
-            logger.error(f"读取监控配置失败: {e}")
-        
-        return monitors
+        # 直接使用 config_manager 获取配置
+        return self.config_manager.list_monitors()
     
     def _save_monitors(self, monitors):
-        """保存监控配置"""
-        try:
-            import json
-            from pathlib import Path
-            
-            data_path = Path(os.path.join(os.path.dirname(__file__), "runtime_monitors.json"))
-            
-            with open(data_path, 'w', encoding='utf-8') as f:
-                json.dump({"monitors": monitors}, f, ensure_ascii=False, indent=2)
-            
-            logger.info(f"监控配置已保存: {len(monitors)} 个")
-            return True
-        except Exception as e:
-            logger.error(f"保存监控配置失败: {e}")
-            return False
+        """保存监控配置（已由 config_manager 自动处理）"""
+        # 不再需要手动保存，config_manager 会自动保存
+        return True
     
     def _find_monitor(self, repo_url):
         """查找指定仓库的监控配置"""
-        monitors = self._get_monitors()
-        for monitor in monitors:
-            if monitor.get("repo_url") == repo_url:
-                return monitor
-        return None
+        return self.config_manager.get_monitor(repo_url)
     
     # ==================== 管理指令 ====================
     
@@ -160,7 +131,7 @@ class GiteaRepoMonitor(Star):
         
         用法: /gitea list
         """
-        monitors = self._get_monitors()
+        monitors = self.config_manager.list_monitors()
         
         if not monitors:
             yield event.plain_result("📋 当前没有任何监控配置")
