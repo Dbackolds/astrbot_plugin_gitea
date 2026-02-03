@@ -26,7 +26,8 @@ class MonitorConfig:
         try:
             # 格式: {platform_id}:{message_type}:{session_id}
             parts = self.unified_msg_origin.split(':')
-            if len(parts) >= 3 and parts[1] == 'group':
+            if len(parts) >= 3:
+                # 直接返回最后一部分作为 session_id，不检查 message_type
                 return parts[2]
             return "未知"
         except:

@@ -131,19 +131,21 @@ class GiteaRepoMonitor(Star):
         current_unified_msg_origin = event.unified_msg_origin
         logger.info(f"收到 add 命令，当前 unified_msg_origin: {current_unified_msg_origin}")
         
-        # 如果提供了 group_id，构造 unified_msg_origin
+        # 如果提供了 group_id，需要替换当前会话中的群号部分
         if group_id:
-            # 从当前会话提取平台信息
+            # 从当前会话提取平台信息和消息类型
             # 格式: {platform_id}:{message_type}:{session_id}
             parts = current_unified_msg_origin.split(':')
             if len(parts) >= 3:
-                platform = parts[0]  # 例如: default, aiocqhttp, napcat
-                unified_msg_origin = f"{platform}:group:{group_id}"
+                # 保持平台和消息类型不变，只替换 session_id
+                platform = parts[0]
+                message_type = parts[1]
+                unified_msg_origin = f"{platform}:{message_type}:{group_id}"
                 logger.info(f"使用指定群号构造 unified_msg_origin: {unified_msg_origin}")
             else:
-                # 如果无法解析，使用默认格式
-                unified_msg_origin = f"default:group:{group_id}"
-                logger.warning(f"无法解析当前会话格式，使用默认格式: {unified_msg_origin}")
+                # 如果无法解析，直接使用当前会话格式但替换最后的 ID
+                logger.warning(f"无法解析当前会话格式，使用当前会话: {current_unified_msg_origin}")
+                unified_msg_origin = current_unified_msg_origin
         else:
             # 使用当前会话
             unified_msg_origin = current_unified_msg_origin
