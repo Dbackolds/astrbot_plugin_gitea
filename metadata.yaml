@@ -4,3 +4,4 @@ author: Your Name
 version: 1.0.0
 description: 监控 Gitea 仓库的推送、合并请求和议题事件，并实时发送通知到指定的 QQ 群组
 repo: https://github.com/Dbackolds/astrbot_plugin_gitea
+root_dir_name: astrbot_plugin_gitea
