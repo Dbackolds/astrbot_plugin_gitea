@@ -179,6 +179,43 @@ class GiteaRepoMonitor(Star):
         else:
             yield event.plain_result(f"❌ 删除失败！\n该仓库的监控配置不存在")
     
+    @gitea_group.command("test")
+    async def test_notification(self, event: AstrMessageEvent, group_id: str = None):
+        """
+        测试通知发送功能
+        
+        用法: /gitea test [group_id]
+        示例: /gitea test 123456789
+        
+        如果不提供 group_id，将发送到当前群组
+        """
+        # 如果没有提供 group_id，使用当前会话的群组
+        if not group_id:
+            # 从 event 中获取当前群组 ID
+            session_id = event.unified_msg_origin
+            logger.info(f"当前 session_id: {session_id}")
+            
+            # 解析 session_id 获取群组 ID
+            parts = session_id.split('_')
+            if len(parts) >= 3 and parts[1] == 'group':
+                group_id = parts[2]
+                yield event.plain_result(f"📝 检测到当前群组: {group_id}\n正在测试发送...")
+            else:
+                yield event.plain_result(f"❌ 无法从当前会话获取群组 ID\n请手动指定: /gitea test <group_id>\n\n当前 session: {session_id}")
+                return
+        else:
+            yield event.plain_result(f"📝 测试发送到群组: {group_id}")
+        
+        # 测试发送
+        test_message = f"🧪 这是一条测试消息\n群组 ID: {group_id}\n时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        
+        success = await self.notification_sender.send(group_id, test_message)
+        
+        if success:
+            yield event.plain_result(f"✅ 测试成功！消息已发送到群组 {group_id}")
+        else:
+            yield event.plain_result(f"❌ 测试失败！无法发送到群组 {group_id}\n请查看日志了解详细错误信息")
+    
     @gitea_group.command("info")
     async def show_info(self, event: AstrMessageEvent):
         """

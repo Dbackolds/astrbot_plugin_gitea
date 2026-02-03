@@ -37,13 +37,14 @@ class NotificationSender:
             # 构造消息链
             message_chain = MessageChain().message(message)
             
-            # 尝试多种格式的 unified_msg_origin
-            # 格式: {platform}_{type}_{id}
+            # unified_msg_origin 格式: {platform}_{type}_{id}
+            # 需要3个部分，用下划线分隔
             unified_msg_origins = [
-                f"aiocqhttp_group_{group_id}",    # aiocqhttp 适配器 + 群组
-                f"qq_group_{group_id}",           # QQ 适配器 + 群组
-                f"default_group_{group_id}",      # 默认适配器 + 群组
-                f"group_{group_id}",              # 通用群组格式
+                f"aiocqhttp_group_{group_id}",    # aiocqhttp 适配器 + 群组 + ID
+                f"qq_group_{group_id}",           # QQ 适配器 + 群组 + ID
+                f"default_group_{group_id}",      # 默认适配器 + 群组 + ID
+                f"napcat_group_{group_id}",       # NapCat 适配器 + 群组 + ID
+                f"gocq_group_{group_id}",         # go-cqhttp 适配器 + 群组 + ID
             ]
             
             # 尝试发送消息
@@ -61,7 +62,8 @@ class NotificationSender:
                     
                 except Exception as e:
                     last_error = e
-                    logger.debug(f"使用 {umo} 发送失败: {type(e).__name__}: {e}")
+                    error_msg = str(e)
+                    logger.debug(f"使用 {umo} 发送失败: {type(e).__name__}: {error_msg}")
                     continue
             
             # 所有格式都失败，记录详细错误
@@ -76,7 +78,8 @@ class NotificationSender:
             logger.error(f"  2. 机器人是否有发送消息的权限")
             logger.error(f"  3. 群号 {group_id} 是否正确")
             logger.error(f"  4. QQ 适配器是否正常运行")
-            logger.error(f"  5. 适配器名称是否正确（查看 AstrBot 配置）")
+            logger.error(f"  5. 适配器名称是否正确（常见: aiocqhttp, napcat, gocq, qq）")
+            logger.error(f"  6. 查看 AstrBot 日志，找到适配器的实际名称")
             
             return False
             
