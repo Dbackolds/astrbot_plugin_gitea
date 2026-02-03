@@ -1,0 +1,10 @@
+# Gitea 仓库监控插件依赖
+
+# HTTP 服务器
+aiohttp>=3.9.0
+
+# 属性测试框架
+hypothesis>=6.0.0
+
+# 异步测试支持
+pytest-asyncio>=0.21.0

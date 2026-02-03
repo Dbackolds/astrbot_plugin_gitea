@@ -1,0 +1,14 @@
+{
+  "webhook_port": {
+    "description": "Webhook 服务器监听端口",
+    "type": "int",
+    "default": 8765,
+    "hint": "确保该端口未被占用且可从外网访问。Gitea 将向此端口发送 Webhook 请求。"
+  },
+  "webhook_host": {
+    "description": "Webhook 服务器监听地址",
+    "type": "string",
+    "default": "0.0.0.0",
+    "hint": "通常使用 0.0.0.0 监听所有网络接口，以便接收来自外部的 Webhook 请求。"
+  }
+}
