@@ -19,11 +19,11 @@ from .webhook_server import WebhookServer
 
 
 @register(
-    "gitea-repo-monitor",
+    "astrbot_plugin_gitea",
     "Your Name",
     "监控 Gitea 仓库活动并发送通知到 QQ 群组",
     "1.0.0",
-    "https://github.com/Dbackolds/GiteaBot"
+    "https://github.com/Dbackolds/astrbot_plugin_gitea"
 )
 class GiteaRepoMonitor(Star):
     """Gitea 仓库监控插件主类"""

@@ -1,6 +1,6 @@
-name: gitea-repo-monitor
+name: astrbot_plugin_gitea
 display_name: Gitea 仓库监控
 author: Your Name
 version: 1.0.0
 description: 监控 Gitea 仓库的推送、合并请求和议题事件，并实时发送通知到指定的 QQ 群组
-repo: https://github.com/Dbackolds/GiteaBot
+repo: https://github.com/Dbackolds/astrbot_plugin_gitea
