@@ -38,7 +38,8 @@ class GiteaRepoMonitor(Star):
         webhook_port = plugin_config.get("webhook_port", 8765)
         
         # 初始化配置管理器
-        storage_path = get_astrbot_data_path() / "plugin_data" / "astrbot_plugin_gitea" / "monitors.json"
+        data_path = Path(get_astrbot_data_path())
+        storage_path = data_path / "plugin_data" / "astrbot_plugin_gitea" / "monitors.json"
         self.config_manager = ConfigManager(str(storage_path))
         
         # 从插件配置中加载监控列表
